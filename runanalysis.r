@@ -1,59 +1,65 @@
- runanalysis <- function{
-   #read activity files
-   Testing <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/y_test.txt", header = F)
-   Training <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/y_train.txt", header = F)
-   #read subject files  
-   SubjTrain <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/subject_train.txt", header = F)
-   SubjTest <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/subject_test.txt", header = FALSE)
-   #read data files
-   FeaTest <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/X_test.txt", header = FALSE)
-   FeaTrain <-  read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/X_train.txt", header = FALSE)
-   
-   #merging files
-   TesTrain <- rbind(Testing,Training)
-   setnames(TesTrain, "V1","activityNum")
-   Subj <- rbind(SubjTest,SubjTrain)
-   setnames(Subj,"V1", "subject")
-   Feating <- rbind(FeaTrain,FeaTest)
-   
-   # match varibales to features
-   Features<- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/features.txt")
-   setnames(Features, names(Features), c("featureNum","featureName")) 
-   colnames(Feating)<- Features$featureName
-  
-   Actlab <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/activity_labels.txt")
-   setnames(Actlab, names(Actlab), c("activityNum","activityName"))
-   
-   #merge columns
-   allData <- cbind(TesTrain,Subj)
-   Feating <- cbind(allData,Feating)
-   
-   #extracting only measuremeents on the mean and standard dev for each measurement
-   FeatMeanSD <- grep("mean\\(\\)|std||(||))", Features$featureName,value=TRUE)
-   FeatMeanSD <- union(c("subject","activityNum"),FeatMeanSD)
-   Feating <- subset(Feating, select = FeatMeanSD)
-   
-   #Using descriptive activity names to name activities in data set
-   Feating <- merge(Actlab, Feating, by="activityNum",all.x = TRUE)
-   Feating$activityName <- as.character(Feating$activityName)
-   Feating$activityName <- as.character(Feating$activityName)
-   Master <- aggregate(. ~ subject - activityName, data = Feating, mean)
-   Feating <- tbl_df(arrange(Master, Subj, activityName))
-   
-   #Labeling Data Set
-   head(str(Feating),2)
-   names(Feating)<- gsub("std()","SD", names(Feating))
-   names(Feating)<-gsub("mean()","MEAN", names(Feating))
-   names(Feating)<-gsub("^t","time",names(Feating))
-   names(Feating)<-gsub("^f","frequency", names(Feating))
-   names(Feating)<-gsub("Acc","Accelerometer",names(Feating))
-   names(Feating)<-gsub("Gyro","Gyroscope",names(Feating))
-   names(Feating)<-gsub("Mag","Magnitude",names(Feating))
-   names(Feating)<-gsub("BodyBody","Body",names(Feating))
-   
-   head(str(Feating),6)
-   
-   write.table(Feating,"cleanData.txt",row.name= FALSE)
- }
- 
- 
+
+
+
+
+
+library("data.table")
+library("reshape2")
+
+# Load: activity labels to variable
+activity_labels <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/activity_labels.txt")[,2]
+
+# Load: data column names to variable
+features <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/features.txt")[,2]
+
+# Extract only mean and standard deviation for each measurement.
+extract_features <- grepl("mean|std", features)
+
+# Load and process X_test & y_test data.
+X_test <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/X_test.txt")
+y_test <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/y_test.txt")
+subject_test <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/subject_test.txt")
+
+names(X_test) = features
+
+# Extract the mean and standard deviation for each measurement.
+X_test = X_test[,extract_features]
+
+# Load and assign activity labels to variables
+y_test[,2] = activity_labels[y_test[,1]]
+names(y_test) = c("Activity_ID", "Activity_Label")
+names(subject_test) = "subject"
+
+# Bind data
+test_data <- cbind(as.data.table(subject_test), y_test, X_test)
+
+# Assign X_train & y_train data to variables
+X_train <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/X_train.txt")
+y_train <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/y_train.txt")
+
+subject_train <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/subject_train.txt")
+
+names(X_train) = features
+
+# Extract only the measurements on the mean and standard deviation for each measurement.
+X_train = X_train[,extract_features]
+
+# Load activity data
+y_train[,2] = activity_labels[y_train[,1]]
+names(y_train) = c("Activity_ID", "Activity_Label")
+names(subject_train) = "subject"
+
+# Bind data
+train_data <- cbind(as.data.table(subject_train), y_train, X_train)
+
+# Merge test and train data
+data = rbind(test_data, train_data)
+
+id_labels   = c("subject", "Activity_ID", "Activity_Label")
+data_labels = setdiff(colnames(data), id_labels)
+melt_data      = melt(data, id = id_labels, measure.vars = data_labels)
+
+# Apply mean function to dataset using dcast function
+tidy_data   = dcast(melt_data, subject + Activity_Label ~ variable, mean)
+
+write.table(tidy_data, file = "/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/tidy_data.txt")
