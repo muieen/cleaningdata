@@ -1,77 +1,55 @@
 # cleaningdata
 
-UCI HAR Dataset = files given to us by instructor
-runanalysis.r = code made to do what was necessary for project
-cleanData.txt = tidy data representation 
-codebook.md = codebook describing the variables, the data and any transformations or wok that were performed to clean up the data.
+Here are the data for the project can be found here:
 
-R script called run_analysis.R  does the following:
+https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip
 
+Background information regarding data:
+
+The experiments have been carried out with a group of 30 volunteers within an age bracket of 19-48 years. Each person performed six activities (WALKING, WALKING_UPSTAIRS, WALKING_DOWNSTAIRS, SITTING, STANDING, LAYING) wearing a smartphone (Samsung Galaxy S II) on the waist. Using its embedded accelerometer and gyroscope, we captured 3-axial linear acceleration and 3-axial angular velocity at a constant rate of 50Hz. The experiments have been video-recorded to label the data manually. The obtained dataset has been randomly partitioned into two sets, where 70% of the volunteers was selected for generating the training data and 30% the test data. 
+
+The sensor signals (accelerometer and gyroscope) were pre-processed by applying noise filters and then sampled in fixed-width sliding windows of 2.56 sec and 50% overlap (128 readings/window). The sensor acceleration signal, which has gravitational and body motion components, was separated using a Butterworth low-pass filter into body acceleration and gravity. The gravitational force is assumed to have only low frequency components, therefore a filter with 0.3 Hz cutoff frequency was used. From each window, a vector of features was obtained by calculating variables from the time and frequency domain. See 'features_info.txt' for more details. 
+
+The dataset includes the following files:
+=========================================
+
+- 'README.txt'
+
+- 'features_info.txt': Shows information about the variables used on the feature vector.
+
+- 'features.txt': List of all features.
+
+- 'activity_labels.txt': Links the class labels with their activity name.
+
+- 'train/X_train.txt': Training set.
+
+- 'train/y_train.txt': Training labels.
+
+- 'test/X_test.txt': Test set.
+
+- 'test/y_test.txt': Test labels.
+
+The following files are available for the train and test data. Their descriptions are equivalent. 
+
+- 'train/subject_train.txt': Each row identifies the subject who performed the activity for each window sample. Its range is from 1 to 30. 
+
+- 'train/Inertial Signals/total_acc_x_train.txt': The acceleration signal from the smartphone accelerometer X axis in standard gravity units 'g'. Every row shows a 128 element vector. The same description applies for the 'total_acc_x_train.txt' and 'total_acc_z_train.txt' files for the Y and Z axis. 
+
+- 'train/Inertial Signals/body_acc_x_train.txt': The body acceleration signal obtained by subtracting the gravity from the total acceleration. 
+
+- 'train/Inertial Signals/body_gyro_x_train.txt': The angular velocity vector measured by the gyroscope for each window sample. The units are radians/second. 
+
+Transformation details:
 Merges the training and the test sets to create one data set.
 Extracts only the measurements on the mean and standard deviation for each measurement.
 Uses descriptive activity names to name the activities in the data set
 Appropriately labels the data set with descriptive variable names.
 From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
 
-For more detail see code below with comments.
 
-
- runanalysis <- function{
-   #read activity files
-   Testing <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/y_test.txt", header = F)
-   Training <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/y_train.txt", header = F)
-   #read subject files  
-   SubjTrain <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/subject_train.txt", header = F)
-   SubjTest <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/subject_test.txt", header = FALSE)
-   #read data files
-   FeaTest <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/test/X_test.txt", header = FALSE)
-   FeaTrain <-  read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/train/X_train.txt", header = FALSE)
-   
-   #merging files
-   TesTrain <- rbind(Testing,Training)
-   setnames(TesTrain, "V1","activityNum")
-   Subj <- rbind(SubjTest,SubjTrain)
-   setnames(Subj,"V1", "subject")
-   Feating <- rbind(FeaTrain,FeaTest)
-   
-   # match varibales to features
-   Features<- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/features.txt")
-   setnames(Features, names(Features), c("featureNum","featureName")) 
-   colnames(Feating)<- Features$featureName
-  
-   Actlab <- read.table("/Users/mcader/Desktop/JHU Data Science Course/Cleaning Data/UCI HAR Dataset/activity_labels.txt")
-   setnames(Actlab, names(Actlab), c("activityNum","activityName"))
-   
-   #merge columns
-   allData <- cbind(TesTrain,Subj)
-   Feating <- cbind(allData,Feating)
-   
-   #extracting only measuremeents on the mean and standard dev for each measurement
-   FeatMeanSD <- grep("mean\\(\\)|std||(||))", Features$featureName,value=TRUE)
-   FeatMeanSD <- union(c("subject","activityNum"),FeatMeanSD)
-   Feating <- subset(Feating, select = FeatMeanSD)
-   
-   #Using descriptive activity names to name activities in data set
-   Feating <- merge(Actlab, Feating, by="activityNum",all.x = TRUE)
-   Feating$activityName <- as.character(Feating$activityName)
-   Feating$activityName <- as.character(Feating$activityName)
-   Master <- aggregate(. ~ subject - activityName, data = Feating, mean)
-   Feating <- tbl_df(arrange(Master, Subj, activityName))
-   
-   #Labeling Data Set
-   head(str(Feating),2)
-   names(Feating)<- gsub("std()","SD", names(Feating))
-   names(Feating)<-gsub("mean()","MEAN", names(Feating))
-   names(Feating)<-gsub("^t","time",names(Feating))
-   names(Feating)<-gsub("^f","frequency", names(Feating))
-   names(Feating)<-gsub("Acc","Accelerometer",names(Feating))
-   names(Feating)<-gsub("Gyro","Gyroscope",names(Feating))
-   names(Feating)<-gsub("Mag","Magnitude",names(Feating))
-   names(Feating)<-gsub("BodyBody","Body",names(Feating))
-   
-   head(str(Feating),6)
-   
-   write.table(Feating,"cleanData.txt",row.name= FALSE)
- }
- 
- 
+Runanalysis.r summary:
+1. Loads the data.table and reshape2 libraries
+2. Loads and assigns data to relevant variables
+3. Extracts the means and standard deviations for the relevant data.
+4. Cleans data
+5. Merges the data
